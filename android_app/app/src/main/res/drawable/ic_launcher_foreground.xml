@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 白色聊天气泡图标（品牌蓝底） -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.55"
+        android:scaleY="0.55"
+        android:pivotX="54"
+        android:pivotY="54">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M54,20c-18.8,0 -34,12.3 -34,27.5 0,8.7 4.9,16.5 12.5,21.6 -0.6,3.6 -2.3,7.1 -5.2,9.8 -1,0.9 -0.3,2.5 1,2.4 5.9,-0.5 11.3,-2.8 15.5,-5.7 3.3,0.9 6.7,1.4 10.2,1.4 18.8,0 34,-12.3 34,-27.5S72.8,20 54,20z" />
+        <path
+            android:fillColor="#2F6BFF"
+            android:pathData="M40,44.5m-3.2,0a3.2,3.2 0,1 1,6.4 0a3.2,3.2 0,1 1,-6.4 0" />
+        <path
+            android:fillColor="#2F6BFF"
+            android:pathData="M54,44.5m-3.2,0a3.2,3.2 0,1 1,6.4 0a3.2,3.2 0,1 1,-6.4 0" />
+        <path
+            android:fillColor="#2F6BFF"
+            android:pathData="M68,44.5m-3.2,0a3.2,3.2 0,1 1,6.4 0a3.2,3.2 0,1 1,-6.4 0" />
+    </group>
+</vector>

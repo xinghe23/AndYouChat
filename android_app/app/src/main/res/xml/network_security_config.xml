@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  开发期明文放行（Android 9+ 默认禁止明文 HTTP）。
+  仅白名单域名允许明文；上线切 HTTPS 时删除整个文件即可，
+  代码侧只需把 Config 里的 http 换成 https。
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">www.liuzhidu.site</domain>
+        <domain includeSubdomains="false">101.43.6.205</domain>
+        <!-- 模拟器访问宿主机本地后端 -->
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>
