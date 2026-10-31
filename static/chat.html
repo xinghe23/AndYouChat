@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AndYouChat · 调试台</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --line: #e5e7eb;
+    --text: #1f2329;
+    --muted: #8a9099;
+    --brand: #2f6bff;
+    --brand-soft: #eaf0ff;
+    --bubble-me: #2f6bff;
+    --bubble-other: #ffffff;
+    --ok: #12b76a;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text); font-size: 14px;
+  }
+  button { font-family: inherit; cursor: pointer; border: none; border-radius: 8px; }
+  input, textarea { font-family: inherit; font-size: 14px; }
+
+  #login {
+    height: 100%; display: flex; align-items: center; justify-content: center;
+  }
+  .card {
+    width: 340px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 14px; padding: 28px;
+  }
+  .card h1 { font-size: 18px; margin: 0 0 4px; font-weight: 600; }
+  .card p.hint { color: var(--muted); font-size: 12px; margin: 0 0 20px; line-height: 1.6; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .field input {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--line);
+    border-radius: 8px; outline: none; background: #fbfcfd;
+  }
+  .field input:focus { border-color: var(--brand); background: #fff; }
+  .btn-primary {
+    width: 100%; padding: 10px; background: var(--brand); color: #fff;
+    font-weight: 500; margin-top: 6px;
+  }
+  .btn-primary:disabled { opacity: .6; }
+  .switch { text-align: center; margin-top: 14px; font-size: 12px; color: var(--muted); }
+  .switch a { color: var(--brand); cursor: pointer; text-decoration: none; }
+  .err { color: #e24b4a; font-size: 12px; min-height: 16px; margin-top: 8px; }
+
+  #app { display: flex; height: 100%; }
+  aside {
+    width: 330px; background: var(--panel); border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; flex-shrink: 0;
+  }
+  .me {
+    display: flex; align-items: center; gap: 10px; padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .avatar {
+    width: 34px; height: 34px; border-radius: 50%; background: var(--brand-soft);
+    color: var(--brand); display: flex; align-items: center; justify-content: center;
+    font-weight: 600; font-size: 13px; flex-shrink: 0;
+  }
+  .me-info { flex: 1; min-width: 0; }
+  .me-name { font-weight: 500; }
+  .me-sub { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); display: inline-block; }
+  .dot.off { background: #c9ced6; }
+  .link-btn { background: none; color: var(--muted); font-size: 12px; padding: 4px; }
+  .link-btn:hover { color: var(--brand); }
+
+  .tabs { display: flex; border-bottom: 1px solid var(--line); }
+  .tab {
+    flex: 1; padding: 10px 0; text-align: center; font-size: 13px; color: var(--muted);
+    background: none; border-radius: 0; border-bottom: 2px solid transparent;
+  }
+  .tab.active { color: var(--brand); border-bottom-color: var(--brand); font-weight: 500; }
+  .badge {
+    display: inline-block; min-width: 16px; height: 16px; line-height: 16px;
+    padding: 0 4px; border-radius: 8px; background: #e24b4a; color: #fff;
+    font-size: 10px; text-align: center; margin-left: 3px;
+  }
+
+  .pane { flex: 1; overflow-y: auto; }
+  .pane[hidden] { display: none; }
+  .search-box { padding: 10px 12px; border-bottom: 1px solid var(--line); display: flex; gap: 6px; }
+  .search-box input {
+    flex: 1; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; outline: none;
+  }
+  .search-box button { padding: 0 12px; background: var(--brand-soft); color: var(--brand); }
+
+  .row {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    cursor: pointer; border-bottom: 1px solid #f2f3f5;
+  }
+  .row:hover { background: #fafbfc; }
+  .row.active { background: var(--brand-soft); }
+  .row-main { flex: 1; min-width: 0; }
+  .row-top { display: flex; justify-content: space-between; gap: 8px; }
+  .row-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row-time { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+  .row-sub {
+    font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; margin-top: 2px;
+  }
+  .row-action { padding: 4px 10px; font-size: 12px; background: var(--brand-soft); color: var(--brand); }
+  .row-action.ghost { background: #f2f3f5; color: var(--muted); }
+  .empty { padding: 30px 16px; text-align: center; color: var(--muted); font-size: 12px; }
+
+  main { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg); }
+  .chat-head {
+    padding: 14px 20px; background: var(--panel); border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .chat-title { font-weight: 500; }
+  .chat-status { font-size: 12px; color: var(--muted); }
+  .messages { flex: 1; overflow-y: auto; padding: 20px; }
+  .day { text-align: center; color: var(--muted); font-size: 11px; margin: 12px 0; }
+  .msg { display: flex; margin-bottom: 12px; gap: 8px; }
+  .msg .avatar { width: 28px; height: 28px; font-size: 11px; }
+  .bubble-wrap { max-width: 62%; }
+  .bubble {
+    padding: 8px 12px; border-radius: 10px; line-height: 1.5; word-break: break-word;
+    background: var(--bubble-other); border: 1px solid var(--line); white-space: pre-wrap;
+  }
+  .msg.me { flex-direction: row-reverse; }
+  .msg.me .bubble-wrap { display: flex; flex-direction: column; align-items: flex-end; }
+  .msg.me .bubble { background: var(--bubble-me); color: #fff; border-color: var(--bubble-me); }
+  .meta { font-size: 10px; color: var(--muted); margin-top: 3px; display: flex; gap: 6px; align-items: center; }
+  .msg.me .meta { justify-content: flex-end; }
+  .msg.sending .bubble { opacity: .65; }
+  .msg.failed .bubble { border-color: #e24b4a; }
+  .read-mark { color: var(--brand); }
+
+  .composer {
+    background: var(--panel); border-top: 1px solid var(--line); padding: 12px 16px;
+    display: flex; gap: 10px; align-items: flex-end;
+  }
+  .composer textarea {
+    flex: 1; resize: none; height: 42px; max-height: 120px; padding: 11px 12px;
+    border: 1px solid var(--line); border-radius: 10px; outline: none; background: #fbfcfd;
+  }
+  .composer textarea:focus { border-color: var(--brand); background: #fff; }
+  .composer button { height: 42px; padding: 0 20px; background: var(--brand); color: #fff; }
+  .composer button:disabled { opacity: .5; }
+
+  .placeholder {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; color: var(--muted); gap: 8px;
+  }
+  .placeholder .big { font-size: 15px; color: #5f6672; }
+  .conn {
+    position: fixed; right: 16px; bottom: 16px; padding: 6px 12px; border-radius: 999px;
+    font-size: 11px; background: #fff; border: 1px solid var(--line); color: var(--muted);
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  }
+  .conn.live { color: var(--ok); border-color: #b7ebd0; }
+  .conn.down { color: #e24b4a; border-color: #f7c1c1; }
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="card">
+    <h1 id="login-title">登录 AndYouChat</h1>
+    <p class="hint">用两个浏览器标签页分别登录两个账号，即可互发消息验证实时链路。</p>
+    <div class="field">
+      <label>服务器地址</label>
+      <input id="server" placeholder="留空表示当前域名" />
+    </div>
+    <div class="field">
+      <label>用户名（3-32 位字母/数字/下划线）</label>
+      <input id="username" autocomplete="username" placeholder="alice" />
+    </div>
+    <div class="field">
+      <label>密码（至少 6 位）</label>
+      <input id="password" type="password" autocomplete="current-password" placeholder="pass1234" />
+    </div>
+    <button class="btn-primary" id="submit">登录</button>
+    <div class="switch">
+      <span id="switch-text">没有账号？</span>
+      <a id="switch-mode">注册一个</a>
+    </div>
+    <div class="err" id="login-err"></div>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <aside>
+    <div class="me">
+      <div class="avatar" id="me-avatar">?</div>
+      <div class="me-info">
+        <div class="me-name" id="me-name">-</div>
+        <div class="me-sub"><span class="dot" id="me-dot"></span><span id="me-sub">在线</span></div>
+      </div>
+      <button class="link-btn" id="logout">退出</button>
+    </div>
+    <div class="tabs">
+      <button class="tab active" data-pane="conversations">会话</button>
+      <button class="tab" data-pane="friends">好友</button>
+      <button class="tab" data-pane="requests">申请<span class="badge" id="req-badge" hidden>0</span></button>
+    </div>
+    <div class="pane" id="pane-conversations"></div>
+    <div class="pane" id="pane-friends" hidden>
+      <div class="search-box">
+        <input id="search-input" placeholder="搜索用户名或昵称" />
+        <button id="search-btn">搜索</button>
+      </div>
+      <div id="search-results"></div>
+      <div id="friend-list"></div>
+    </div>
+    <div class="pane" id="pane-requests" hidden></div>
+  </aside>
+
+  <main>
+    <div class="placeholder" id="placeholder">
+      <div class="big">选择一个会话开始聊天</div>
+      <div>实时通道已就绪时会显示在右下角</div>
+    </div>
+    <div id="chat" hidden style="display:flex;flex-direction:column;height:100%">
+      <div class="chat-head">
+        <div class="avatar" id="chat-avatar">?</div>
+        <div>
+          <div class="chat-title" id="chat-title">-</div>
+          <div class="chat-status" id="chat-status"></div>
+        </div>
+      </div>
+      <div class="messages" id="messages"></div>
+      <div class="composer">
+        <textarea id="input" placeholder="输入消息，Enter 发送，Shift+Enter 换行"></textarea>
+        <button id="send">发送</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="conn" id="conn">未连接</div>
+
+<script>
+const state = {
+  api: '',
+  token: '',
+  me: null,
+  conversations: [],
+  friends: [],
+  requests: [],
+  activeId: null,
+  ws: null,
+  retry: 0,
+  closedByUser: false,
+  typingTimer: null,
+  registerMode: false,
+};
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
+  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+));
+
+function fmtTime(ms) {
+  if (!ms) return '';
+  const d = new Date(ms), now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  if (sameDay) return hm;
+  const y = new Date(now.getTime() - 86400000);
+  if (d.toDateString() === y.toDateString()) return '昨天 ' + hm;
+  return `${d.getMonth() + 1}/${d.getDate()} ${hm}`;
+}
+
+function setConn(text, cls) {
+  const el = $('conn');
+  el.textContent = text;
+  el.className = 'conn' + (cls ? ' ' + cls : '');
+}
+
+const FIELD_LABELS = {
+  username: '用户名', password: '密码', nickname: '昵称', sign: '签名',
+  to_user_id: '对方用户', peer_id: '对方用户', conversation_id: '会话',
+  client_msg_id: '消息标识', content: '消息内容', seq: '已读位置',
+  q: '搜索关键字', accept: '是否同意', limit: '每页数量',
+  refresh_token: '刷新令牌', access_token: '访问令牌',
+};
+
+function translateValidation(msg) {
+  const text = String(msg || '').replace(/^Value error,\s*/, '');
+  let m = text.match(/at least (\d+) character/);
+  if (m) return '至少需要 ' + m[1] + ' 个字符';
+  m = text.match(/at most (\d+) character/);
+  if (m) return '最多 ' + m[1] + ' 个字符';
+  if (text.includes('Field required')) return '不能为空';
+  if (text.includes('String should match pattern')) return '只能用字母、数字或下划线';
+  if (text.includes('valid integer')) return '必须是整数';
+  if (text.includes('Input should be')) return '取值不合法';
+  return text;
+}
+
+function formatError(detail, status) {
+  if (Array.isArray(detail)) {
+    const parts = detail.map((item) => {
+      const loc = (item.loc || []).filter((p) => p !== 'body');
+      const field = FIELD_LABELS[loc[0]] || loc[0] || '参数';
+      return field + translateValidation(item.msg);
+    });
+    return parts.join('；') || '输入格式不正确';
+  }
+  if (typeof detail === 'string' && detail) return detail;
+  if (detail && typeof detail === 'object') return detail.message || JSON.stringify(detail);
+  return '请求失败（HTTP ' + status + '）';
+}
+
+async function api(path, options = {}) {
+  const headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
+  if (state.token) headers.Authorization = 'Bearer ' + state.token;
+  let resp;
+  try {
+    resp = await fetch(state.api + path, Object.assign({}, options, { headers }));
+  } catch (e) {
+    throw new Error('连不上服务器，请确认服务已启动、地址填写正确');
+  }
+  const text = await resp.text();
+  let body = null;
+  try { body = text ? JSON.parse(text) : null; } catch (e) { body = text; }
+  if (!resp.ok) {
+    const detail = body && body.detail !== undefined ? body.detail : body;
+    throw new Error(formatError(detail, resp.status));
+  }
+  return body;
+}
+
+/* ---------------- 登录 ---------------- */
+
+$('switch-mode').onclick = () => {
+  state.registerMode = !state.registerMode;
+  $('login-title').textContent = state.registerMode ? '注册新账号' : '登录 AndYouChat';
+  $('submit').textContent = state.registerMode ? '注册并登录' : '登录';
+  $('switch-text').textContent = state.registerMode ? '已有账号？' : '没有账号？';
+  $('switch-mode').textContent = state.registerMode ? '去登录' : '注册一个';
+  $('login-err').textContent = '';
+};
+
+$('submit').onclick = async () => {
+  const err = $('login-err');
+  err.textContent = '';
+  state.api = ($('server').value || '').replace(/\/$/, '');
+  const username = $('username').value.trim();
+  const password = $('password').value;
+
+  if (!username) { err.textContent = '请输入用户名'; $('username').focus(); return; }
+  if (!password) { err.textContent = '请输入密码'; $('password').focus(); return; }
+  if (state.registerMode) {
+    if (!/^[A-Za-z0-9_]{3,32}$/.test(username)) {
+      err.textContent = '用户名需 3-32 位字母、数字或下划线';
+      return;
+    }
+    if (password.length < 6) { err.textContent = '密码至少 6 位'; return; }
+  } else if (username.length < 3) {
+    err.textContent = '用户名至少 3 位';
+    return;
+  }
+
+  const btn = $('submit');
+  btn.disabled = true;
+  try {
+    const path = state.registerMode ? '/api/v1/auth/register' : '/api/v1/auth/login';
+    const data = await api(path, {
+      method: 'POST',
+      body: JSON.stringify({ username, password, nickname: username }),
+    });
+    state.token = data.access_token;
+    state.me = data.user;
+    sessionStorage.setItem('ayc_token', state.token);
+    sessionStorage.setItem('ayc_api', state.api);
+    enterApp();
+  } catch (e) {
+    err.textContent = e.message;
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+$('logout').onclick = () => {
+  state.closedByUser = true;
+  if (state.ws) state.ws.close();
+  sessionStorage.clear();
+  location.reload();
+};
+
+$('password').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('submit').click(); });
+
+['username', 'password', 'server'].forEach((id) => {
+  $(id).addEventListener('input', () => { $('login-err').textContent = ''; });
+});
+
+/* ---------------- 主界面 ---------------- */
+
+async function enterApp() {
+  $('login').hidden = true;
+  $('app').hidden = false;
+  $('me-name').textContent = state.me.nickname;
+  $('me-avatar').textContent = state.me.nickname.slice(0, 1).toUpperCase();
+  setConn('连接中…');
+  connectWs();
+  await refreshAll();
+}
+
+async function refreshAll() {
+  await Promise.all([loadConversations(), loadFriends(), loadRequests()]);
+}
+
+function wsUrl() {
+  const base = state.api || location.origin;
+  const url = new URL(base);
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  url.pathname = '/ws';
+  url.search = '?token=' + encodeURIComponent(state.token);
+  return url.toString();
+}
+
+function connectWs() {
+  state.closedByUser = false;
+  let ws;
+  try { ws = new WebSocket(wsUrl()); } catch (e) { setConn('连接失败', 'down'); return; }
+  state.ws = ws;
+
+  ws.onopen = () => {
+    state.retry = 0;
+    setConn('实时通道已连接', 'live');
+    if (state.activeId) resyncActive();
+  };
+  ws.onmessage = (ev) => {
+    let frame;
+    try { frame = JSON.parse(ev.data); } catch (e) { return; }
+    handleFrame(frame);
+  };
+  ws.onclose = () => {
+    setConn('连接已断开，重连中…', 'down');
+    if (state.closedByUser) return;
+    const delay = Math.min(1000 * Math.pow(1.6, state.retry++), 15000);
+    setTimeout(connectWs, delay);
+  };
+  ws.onerror = () => setConn('连接异常', 'down');
+}
+
+function sendWs(type, data, requestId) {
+  if (!state.ws || state.ws.readyState !== 1) return false;
+  state.ws.send(JSON.stringify({ type, data, request_id: requestId }));
+  return true;
+}
+
+function handleFrame(frame) {
+  const data = frame.data || {};
+  switch (frame.type) {
+    case 'pong':
+      setConn('实时通道已连接', 'live');
+      break;
+    case 'msg.ack':
+      onAck(data.message, data.duplicated);
+      break;
+    case 'msg.new':
+      onIncoming(data.message);
+      break;
+    case 'msg.read':
+      onReadReceipt(data);
+      break;
+    case 'presence':
+      onPresence(data);
+      break;
+    case 'typing':
+      if (data.conversation_id === state.activeId) {
+        $('chat-status').textContent = '对方正在输入…';
+        clearTimeout(state.typingTimer);
+        state.typingTimer = setTimeout(renderChatHeader, 2000);
+      }
+      break;
+    case 'error':
+      console.warn('server error', data);
+      break;
+  }
+}
+
+/* ---------------- 会话 ---------------- */
+
+async function loadConversations() {
+  state.conversations = await api('/api/v1/conversations');
+  renderConversations();
+}
+
+function renderConversations() {
+  const box = $('pane-conversations');
+  if (!state.conversations.length) {
+    box.innerHTML = '<div class="empty">还没有会话<br/>去「好友」里搜索并添加对方</div>';
+    return;
+  }
+  box.innerHTML = state.conversations.map((c) => {
+    const peer = c.peer || {};
+    const last = c.last_message;
+    const preview = last ? (last.revoked ? '[已撤回]' : last.content) : '暂无消息';
+    const dot = peer.online ? '<span class="dot"></span>' : '';
+    return `<div class="row ${c.id === state.activeId ? 'active' : ''}" data-conv="${c.id}">
+      <div class="avatar">${esc((peer.nickname || c.title || '?').slice(0, 1).toUpperCase())}</div>
+      <div class="row-main">
+        <div class="row-top">
+          <span class="row-name">${esc(peer.nickname || c.title || '会话')} ${dot}</span>
+          <span class="row-time">${fmtTime(last ? last.created_at : c.updated_at)}</span>
+        </div>
+        <div class="row-top">
+          <span class="row-sub">${esc(preview)}</span>
+          ${c.unread ? `<span class="badge">${c.unread > 99 ? '99+' : c.unread}</span>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  box.querySelectorAll('[data-conv]').forEach((el) => {
+    el.onclick = () => openConversation(Number(el.dataset.conv));
+  });
+}
+
+async function openConversation(id) {
+  state.activeId = id;
+  $('placeholder').hidden = true;
+  $('chat').hidden = false;
+  renderConversations();
+  renderChatHeader();
+  const page = await api(`/api/v1/conversations/${id}/messages?limit=30`);
+  state.messages = page.items;
+  renderMessages();
+  scrollBottom();
+  markRead();
+}
+
+function activeConv() {
+  return state.conversations.find((c) => c.id === state.activeId) || null;
+}
+
+function renderChatHeader() {
+  const c = activeConv();
+  if (!c) return;
+  const peer = c.peer || {};
+  $('chat-title').textContent = peer.nickname || c.title || '会话';
+  $('chat-avatar').textContent = (peer.nickname || '?').slice(0, 1).toUpperCase();
+  $('chat-status').textContent = peer.online ? '在线' : '离线';
+}
+
+async function resyncActive() {
+  if (!state.activeId) return;
+  const list = state.messages || [];
+  const lastSeq = list.length ? list[list.length - 1].seq : 0;
+  const page = await api(`/api/v1/conversations/${state.activeId}/messages?after_seq=${lastSeq}`);
+  if (page.items.length) {
+    state.messages = list.concat(page.items);
+    renderMessages();
+    scrollBottom();
+    markRead();
+  }
+  loadConversations();
+}
+
+function markRead() {
+  const list = state.messages || [];
+  if (!state.activeId || !list.length) return;
+  const last = list[list.length - 1];
+  sendWs('msg.read', { conversation_id: state.activeId, seq: last.seq });
+  const conv = activeConv();
+  if (conv) { conv.unread = 0; renderConversations(); }
+}
+
+/* ---------------- 消息渲染 ---------------- */
+
+function renderMessages() {
+  const box = $('messages');
+  const me = state.me.id;
+  const list = state.messages || [];
+  let html = '';
+  let lastDay = '';
+  list.forEach((m) => {
+    const d = new Date(m.created_at);
+    const day = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+    if (day !== lastDay) { html += `<div class="day">${d.getMonth() + 1}月${d.getDate()}日</div>`; lastDay = day; }
+    const mine = m.sender_id === me;
+    html += `<div class="msg ${mine ? 'me' : ''}" data-id="${m.id}">
+      <div class="avatar">${mine ? esc(state.me.nickname.slice(0, 1).toUpperCase()) : esc((activeConv()?.peer?.nickname || '?').slice(0, 1).toUpperCase())}</div>
+      <div class="bubble-wrap">
+        <div class="bubble">${esc(m.revoked ? '[消息已撤回]' : m.content)}</div>
+        <div class="meta">${fmtTime(m.created_at)}<span class="read-mark"></span></div>
+      </div>
+    </div>`;
+  });
+  box.innerHTML = html;
+}
+
+function appendMessage(m) {
+  state.messages = (state.messages || []).concat([m]);
+  renderMessages();
+  scrollBottom();
+}
+
+function scrollBottom() {
+  const box = $('messages');
+  box.scrollTop = box.scrollHeight;
+}
+
+function onAck(message, duplicated) {
+  if (!state.messages) state.messages = [];
+  const idx = state.messages.findIndex((m) => m.client_msg_id === message.client_msg_id);
+  if (idx >= 0) state.messages[idx] = message;
+  else state.messages.push(message);
+  if (message.conversation_id === state.activeId) { renderMessages(); scrollBottom(); }
+  loadConversations();
+}
+
+function onIncoming(message) {
+  if (message.conversation_id === state.activeId) {
+    const exists = (state.messages || []).some((m) => m.id === message.id);
+    if (!exists) appendMessage(message);
+    markRead();
+  }
+  loadConversations();
+}
+
+function onReadReceipt(data) {
+  if (data.conversation_id !== state.activeId) return;
+  if (data.user_id === state.me.id) return;
+  $('chat-status').textContent = '已读';
+}
+
+function onPresence(data) {
+  const c = state.conversations.find((x) => x.peer && x.peer.id === data.user_id);
+  if (c) {
+    c.peer.online = data.online;
+    renderConversations();
+    if (c.id === state.activeId) renderChatHeader();
+  }
+  state.friends.forEach((f) => { if (f.id === data.user_id) f.online = data.online; });
+  renderFriends();
+}
+
+/* ---------------- 发送 ---------------- */
+
+async function sendMessage() {
+  const input = $('input');
+  const text = input.value.trim();
+  if (!text || !state.activeId) return;
+  input.value = '';
+  const clientMsgId = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).replace(/-/g, '');
+
+  const optimistic = {
+    id: 'tmp-' + clientMsgId,
+    conversation_id: state.activeId,
+    seq: Number.MAX_SAFE_INTEGER,
+    sender_id: state.me.id,
+    msg_type: 'text',
+    content: text,
+    client_msg_id: clientMsgId,
+    revoked: false,
+    created_at: Date.now(),
+  };
+  appendMessage(optimistic);
+
+  const ok = sendWs('msg.send', {
+    conversation_id: state.activeId,
+    client_msg_id: clientMsgId,
+    msg_type: 'text',
+    content: text,
+  }, clientMsgId);
+
+  if (!ok) {
+    try {
+      const resp = await api('/api/v1/messages', {
+        method: 'POST',
+        body: JSON.stringify({
+          conversation_id: state.activeId,
+          client_msg_id: clientMsgId,
+          msg_type: 'text',
+          content: text,
+        }),
+      });
+      onAck(resp.message, resp.duplicated);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+}
+
+$('send').onclick = sendMessage;
+$('input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  else if (state.activeId) sendWs('typing', { conversation_id: state.activeId });
+});
+
+/* ---------------- 好友 ---------------- */
+
+async function loadFriends() {
+  state.friends = await api('/api/v1/friends');
+  renderFriends();
+}
+
+function renderFriends() {
+  const box = $('friend-list');
+  if (!state.friends.length) {
+    box.innerHTML = '<div class="empty">还没有好友，用上面的搜索加一个</div>';
+    return;
+  }
+  box.innerHTML = state.friends.map((f) => `
+    <div class="row" data-friend="${f.id}">
+      <div class="avatar">${esc(f.nickname.slice(0, 1).toUpperCase())}</div>
+      <div class="row-main">
+        <div class="row-name">${esc(f.nickname)} ${f.online ? '<span class="dot"></span>' : ''}</div>
+        <div class="row-sub">@${esc(f.username)}</div>
+      </div>
+      <button class="row-action" data-open="${f.id}">聊天</button>
+    </div>`).join('');
+  box.querySelectorAll('[data-open]').forEach((btn) => {
+    btn.onclick = async (e) => { e.stopPropagation(); await openWith(Number(btn.dataset.open)); };
+  });
+}
+
+async function openWith(peerId) {
+  const conv = await api('/api/v1/conversations/single', {
+    method: 'POST', body: JSON.stringify({ peer_id: peerId }),
+  });
+  await loadConversations();
+  await openConversation(conv.id);
+  switchPane('conversations');
+}
+
+$('search-btn').onclick = async () => {
+  const q = $('search-input').value.trim();
+  if (!q) return;
+  const results = await api('/api/v1/users/search?q=' + encodeURIComponent(q));
+  const box = $('search-results');
+  if (!results.length) { box.innerHTML = '<div class="empty">没找到用户</div>'; return; }
+  box.innerHTML = results.map((u) => {
+    const action = u.is_friend
+      ? '<button class="row-action" data-open="' + u.id + '">聊天</button>'
+      : u.request_pending
+        ? '<button class="row-action ghost" disabled>已申请</button>'
+        : '<button class="row-action" data-add="' + u.id + '">加好友</button>';
+    return `<div class="row">
+      <div class="avatar">${esc(u.nickname.slice(0, 1).toUpperCase())}</div>
+      <div class="row-main">
+        <div class="row-name">${esc(u.nickname)}</div>
+        <div class="row-sub">@${esc(u.username)}${u.is_friend ? ' · 已是好友' : ''}</div>
+      </div>
+      ${action}
+    </div>`;
+  }).join('');
+
+  box.querySelectorAll('[data-add]').forEach((btn) => {
+    btn.onclick = async () => {
+      try {
+        await api('/api/v1/friends/requests', {
+          method: 'POST',
+          body: JSON.stringify({ to_user_id: Number(btn.dataset.add), message: '你好' }),
+        });
+        btn.textContent = '已申请';
+        btn.classList.add('ghost');
+        btn.disabled = true;
+      } catch (e) { alert(e.message); }
+    };
+  });
+  box.querySelectorAll('[data-open]').forEach((btn) => {
+    btn.onclick = () => openWith(Number(btn.dataset.open));
+  });
+};
+
+$('search-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('search-btn').click(); });
+
+/* ---------------- 好友申请 ---------------- */
+
+async function loadRequests() {
+  state.requests = await api('/api/v1/friends/requests');
+  const badge = $('req-badge');
+  badge.hidden = !state.requests.length;
+  badge.textContent = state.requests.length;
+  renderRequests();
+}
+
+function renderRequests() {
+  const box = $('pane-requests');
+  if (!state.requests.length) { box.innerHTML = '<div class="empty">没有待处理的申请</div>'; return; }
+  box.innerHTML = state.requests.map((r) => `
+    <div class="row">
+      <div class="avatar">${esc(r.from_user.nickname.slice(0, 1).toUpperCase())}</div>
+      <div class="row-main">
+        <div class="row-name">${esc(r.from_user.nickname)}</div>
+        <div class="row-sub">${esc(r.message || '请求加你为好友')}</div>
+      </div>
+      <button class="row-action" data-accept="${r.id}">同意</button>
+      <button class="row-action ghost" data-reject="${r.id}">拒绝</button>
+    </div>`).join('');
+
+  box.querySelectorAll('[data-accept]').forEach((btn) => {
+    btn.onclick = () => respond(Number(btn.dataset.accept), true);
+  });
+  box.querySelectorAll('[data-reject]').forEach((btn) => {
+    btn.onclick = () => respond(Number(btn.dataset.reject), false);
+  });
+}
+
+async function respond(id, accept) {
+  await api(`/api/v1/friends/requests/${id}/respond`, {
+    method: 'POST', body: JSON.stringify({ accept }),
+  });
+  await Promise.all([loadRequests(), loadFriends()]);
+}
+
+/* ---------------- 标签切换 ---------------- */
+
+function switchPane(name) {
+  document.querySelectorAll('.tab').forEach((t) => {
+    t.classList.toggle('active', t.dataset.pane === name);
+  });
+  ['conversations', 'friends', 'requests'].forEach((p) => {
+    $('pane-' + p).hidden = p !== name;
+  });
+}
+
+document.querySelectorAll('.tab').forEach((t) => {
+  t.onclick = () => switchPane(t.dataset.pane);
+});
+
+/* ---------------- 启动 ---------------- */
+
+(async function boot() {
+  const token = sessionStorage.getItem('ayc_token');
+  const apiBase = sessionStorage.getItem('ayc_api') || '';
+  if (!token) return;
+  state.token = token;
+  state.api = apiBase;
+  try {
+    state.me = await api('/api/v1/auth/me');
+    await enterApp();
+  } catch (e) {
+    sessionStorage.clear();
+    state.token = '';
+  }
+})();
+</script>
+</body>
+</html>

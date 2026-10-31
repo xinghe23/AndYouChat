@@ -1,0 +1,81 @@
+# 生产环境依赖服务：MySQL 8 + Redis 7
+#
+# 用法（在 deploy/ 目录）：
+#   cp .env.db.example .env && vim .env     # 填强密码
+#   docker compose -f docker-compose.prod.yml --env-file .env up -d
+#
+# 设计要点：
+#   1. 端口一律绑定 127.0.0.1，外网无法直连，只允许同机的 FastAPI 访问。
+#   2. 数据落 ./data 目录（bind mount），重装容器不丢数据，也方便直接打包备份。
+#   3. MySQL 固定 8.0 而不是 8.4：8.4 默认关闭 mysql_native_password，
+#      aiomysql 走 caching_sha2_password 还需要额外的 cryptography 依赖。
+#      8.0 + native 密码是当前最省事、最不容易踩坑的组合。
+
+name: andyouchat
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: andyou-mysql
+    restart: always
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --innodb-buffer-pool-size=256M
+      - --max-connections=200
+      - --default-time-zone=+08:00
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      # 宿主机 3306 被占（例如宝塔自带的 MySQL）时，在 .env 里加 MYSQL_HOST_PORT=3307
+      - "127.0.0.1:${MYSQL_HOST_PORT:-3306}:3306"
+    # 内存上限：低配机（2G）上 MySQL 不限制会一路吃内存，
+    # 把同机的宝塔面板 Python 进程 OOM 掉，表现为「面板突然进不去」。
+    # buffer pool 256M，加上连接/临时表，700M 足够本项目用。
+    mem_limit: 700m
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  redis:
+    image: redis:7-alpine
+    container_name: andyou-redis
+    restart: always
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - ${REDIS_PASSWORD}
+      - --maxmemory
+      - 128mb
+      - --maxmemory-policy
+      - noeviction
+    # 不限内存时 Redis 可能把机器吃光（尤其是 AOF rewrite 时），192M 上限够用
+    mem_limit: 192m
+    environment:
+      TZ: Asia/Shanghai
+      # 健康检查里用 $$REDIS_PASSWORD 在容器内展开，必须把密码传进容器，
+      # 否则容器内变量为空，实际执行成 `redis-cli -a  ping`，认证失败、
+      # 健康检查永远是 health: starting，部署脚本会卡死在「等待 healthy」。
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    ports:
+      - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
+    volumes:
+      - ./data/redis:/data
+    healthcheck:
+      # --no-auth-warning 只是为了不把密码警告刷进日志
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a $$REDIS_PASSWORD ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10

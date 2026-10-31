@@ -1,0 +1,38 @@
+# AndYouChat FastAPI 服务
+# 安装：cp deploy/andyouchat.service /etc/systemd/system/ && systemctl daemon-reload
+# 启动：systemctl enable --now andyouchat
+#
+# 说明：
+# - 只监听 127.0.0.1:8200，对外由 Nginx 反代，避免绕过 HTTPS 直连。
+# - 改端口要同步改 deploy/nginx-andyouchat.conf 里 upstream 的 server 行。
+# - 配置由 pydantic-settings 从 WorkingDirectory 下的 .env 读取，无需 EnvironmentFile。
+# - 首次启动用 --workers 1（create_all 建表避免多进程竞争），建表完成后可改 2。
+
+[Unit]
+Description=AndYouChat FastAPI Service
+After=network-online.target docker.service
+Wants=network-online.target
+# 连续失败 5 次就停下，避免配置错误时无限重启刷爆日志（原来能刷到 1000+ 次）
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=www
+Group=www
+WorkingDirectory=/www/server/chat_server
+Environment=PYTHONUNBUFFERED=1
+Environment=TZ=Asia/Shanghai
+ExecStart=/www/server/chat_server/.venv/bin/uvicorn app.main:app \
+    --host 127.0.0.1 --port 8200 \
+    --workers 1 \
+    --proxy-headers --forwarded-allow-ips=127.0.0.1 \
+    --timeout-keep-alive 75
+Restart=always
+RestartSec=3
+LimitNOFILE=65535
+# 日志统一走 journald（systemd 239 不支持 append: 语法）
+# 查看：journalctl -u andyouchat -f
+
+[Install]
+WantedBy=multi-user.target
